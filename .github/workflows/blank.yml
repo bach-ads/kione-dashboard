@@ -2,7 +2,9 @@ name: Atualizar dashboard Kione
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 9 * * *'    # 06:00 (Brasília)
+    - cron: '0 15 * * *'   # 12:00 (Brasília)
+    - cron: '30 2 * * *'   # 23:30 (Brasília)
   workflow_dispatch:
   push:
     branches: [main]
