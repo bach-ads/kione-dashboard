@@ -1,12 +1,41 @@
 [
-  { "key": "exp", "name": "Kione Expansão", "id": "1168600519971651",
-    "actionTypes": ["leadgen.other", "lead", "onsite_conversion.lead_grouped", "leadgen_grouped"] },
-  { "key": "eve", "name": "Kione Eventos", "id": "1067435908150043",
-    "actionTypes": ["onsite_conversion.messaging_conversation_started_7d"] },
-  { "key": "rh", "name": "Kione RH", "id": "1760312751041219",
-    "actionTypes": ["onsite_conversion.messaging_conversation_started_7d"] },
-  { "key": "ace", "name": "Acelera Distribuidor", "id": "1715258855890423",
-    "actionTypes": ["profile_visit_view", "instagram_profile_visits"] },
-  { "key": "imp", "name": "Kione Impulsionamentos MKT", "id": "477012800952678",
-    "result": "link_clicks" }
+ {
+  "key": "exp",
+  "name": "Kione Expansão",
+  "id": "1168600519971651",
+  "actionTypes": [
+   "leadgen.other",
+   "lead",
+   "onsite_conversion.lead_grouped",
+   "leadgen_grouped"
+  ]
+ },
+ {
+  "key": "eve",
+  "name": "Kione Eventos",
+  "id": "1067435908150043",
+  "actionTypes": [
+   "onsite_conversion.messaging_conversation_started_7d"
+  ]
+ },
+ {
+  "key": "rh",
+  "name": "Kione RH",
+  "id": "1760312751041219",
+  "actionTypes": [
+   "onsite_conversion.messaging_conversation_started_7d"
+  ]
+ },
+ {
+  "key": "ace",
+  "name": "Acelera Distribuidor",
+  "id": "1715258855890423",
+  "result": "profile_visits"
+ },
+ {
+  "key": "imp",
+  "name": "Kione Impulsionamentos MKT",
+  "id": "477012800952678",
+  "result": "link_clicks"
+ }
 ]

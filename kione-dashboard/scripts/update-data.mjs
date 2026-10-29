@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const TOKEN = process.env.META_ACCESS_TOKEN;
-const VERSION = process.env.META_API_VERSION || 'v21.0';
+const VERSION = process.env.META_API_VERSION || 'v25.0';
 const START = process.env.START_DATE || '2026-09-01';
 const WINDOW_DAYS = Number(process.env.WINDOW_DAYS || 7);
 const RETRY_BASE_MS = Number(process.env.RETRY_BASE_MS || 3000);
@@ -48,14 +48,11 @@ async function getJson(url, tries = 5) {
   }
 }
 
-// Seguidores do perfil do Instagram atribuídos aos anúncios (usa o primeiro tipo de ação que existir)
-const FOLLOW_TYPES = ['follow', 'instagram_profile_follow', 'instagram_profile_follow_v2', 'onsite_conversion.instagram_profile_follow'];
-function followsOf(acc, r) {
-  const map = {};
-  for (const a of r.actions || []) map[a.action_type] = Number(a.value || 0);
-  for (const t of acc.followTypes || FOLLOW_TYPES) if (map[t] !== undefined) return map[t];
-  return 0;
-}
+// Seguidores e visitas ao perfil do Instagram são campos próprios do relatório do Meta (não vêm em "actions").
+// Conversas iniciadas vêm em "actions".
+const numOf = v => Array.isArray(v) ? v.reduce((s, x) => s + Number(x.value || 0), 0) : Number(v || 0);
+const MSG_TYPES = ['onsite_conversion.messaging_conversation_started_7d'];
+const convOf = r => { for (const a of r.actions || []) if (MSG_TYPES.includes(a.action_type)) return Number(a.value || 0); return 0; };
 
 function resultOf(acc, r, link) {
   if (acc.result === 'link_clicks') return link;
@@ -65,8 +62,37 @@ function resultOf(acc, r, link) {
   return 0;
 }
 
+// Lê um campo extra (um por vez, para que um nome inválido não derrube os outros)
+async function pullField(acc, since, until, field) {
+  const map = new Map();
+  const params = new URLSearchParams({
+    level: 'campaign', time_increment: '1', time_range: JSON.stringify({ since, until }),
+    fields: 'campaign_id,' + field, limit: '100', access_token: TOKEN,
+  });
+  let url = `https://graph.facebook.com/${VERSION}/act_${acc.id}/insights?${params}`;
+  while (url) {
+    const body = await getJson(url);
+    for (const r of body.data || []) map.set(r.date_start + '|' + r.campaign_id, numOf(r[field]));
+    url = body.paging?.next || null;
+  }
+  return map;
+}
+async function fetchExtra(acc, since, until, state) {
+  const out = new Map();
+  for (const f of ['instagram_profile_follow', 'instagram_profile_visits']) {
+    if (state[f] === false) continue;
+    try {
+      for (const [k, v] of await pullField(acc, since, until, f)) out.set(k, { ...(out.get(k) || {}), [f]: v });
+    } catch (e) {
+      state[f] = false;
+      console.log(`::warning::${acc.name}: não foi possível ler "${f}" (${e.message.slice(0, 140)}). Esse KPI fica em 0 até corrigir.`);
+    }
+  }
+  return out;
+}
+
 async function fetchAccount(acc) {
-  const rows = [], seen = {};
+  const rows = [], seen = {}, state = {};
   for (const [since, until] of windows(START, today)) {
     const params = new URLSearchParams({
       level: 'campaign',
@@ -76,18 +102,24 @@ async function fetchAccount(acc) {
       limit: '100',
       access_token: TOKEN,
     });
+    const raw = [];
     let url = `https://graph.facebook.com/${VERSION}/act_${acc.id}/insights?${params}`;
     while (url) {
       const body = await getJson(url);
-      for (const r of body.data || []) {
-        for (const a of r.actions || []) seen[a.action_type] = (seen[a.action_type] || 0) + Number(a.value || 0);
-        const spend = Number(r.spend || 0), imp = Number(r.impressions || 0);
-        if (!spend && !imp) continue;
-        const link = Number(r.inline_link_clicks || 0);
-        rows.push([r.date_start, r.campaign_name, +spend.toFixed(2), imp, Number(r.reach || 0),
-          link, Number(r.unique_inline_link_clicks || 0), resultOf(acc, r, link), followsOf(acc, r)]);
-      }
+      raw.push(...(body.data || []));
       url = body.paging?.next || null;
+    }
+    const ex = await fetchExtra(acc, since, until, state);
+    for (const r of raw) {
+      for (const a of r.actions || []) seen[a.action_type] = (seen[a.action_type] || 0) + Number(a.value || 0);
+      const spend = Number(r.spend || 0), imp = Number(r.impressions || 0);
+      if (!spend && !imp) continue;
+      const link = Number(r.inline_link_clicks || 0);
+      const e = ex.get(r.date_start + '|' + r.campaign_id) || {};
+      const fol = e.instagram_profile_follow || 0, vis = e.instagram_profile_visits || 0;
+      const res = acc.result === 'profile_visits' ? vis : resultOf(acc, r, link);
+      rows.push([r.date_start, r.campaign_name, +spend.toFixed(2), imp, Number(r.reach || 0),
+        link, Number(r.unique_inline_link_clicks || 0), res, fol, vis, convOf(r)]);
     }
   }
   rows.sort((a, b) => a[0].localeCompare(b[0]));
@@ -122,10 +154,8 @@ for (const acc of accounts) {
     console.log(`::warning::${acc.name}: usando os dados já publicados (até ${until}) porque o Meta não respondeu.`);
   }
   out.rows[acc.key] = rows;
-  const t = rows.reduce((s, r) => [s[0] + r[2], s[1] + r[7], s[2] + (r[8] || 0)], [0, 0, 0]);
-  console.log(`${acc.name}: ${rows.length} linhas | gasto R$ ${t[0].toFixed(2)} | resultados ${t[1]} | novos seguidores ${t[2]}`);
-  const fcand = Object.keys(seen).filter(k => /follow/i.test(k) && !(acc.followTypes || FOLLOW_TYPES).includes(k));
-  if (fcand.length) console.log(`::warning::${acc.name}: o Meta devolveu tipos de ação de seguidores não mapeados (${fcand.join(', ')}). Inclua em "followTypes" no accounts.json.`);
+  const t = rows.reduce((s, r) => [s[0] + r[2], s[1] + r[7], s[2] + (r[8] || 0), s[3] + (r[9] || 0), s[4] + (r[10] || 0)], [0, 0, 0, 0, 0]);
+  console.log(`${acc.name}: ${rows.length} linhas | gasto R$ ${t[0].toFixed(2)} | resultados ${t[1]} | seguidores ${t[2]} | visitas ao perfil ${t[3]} | conversas iniciadas ${t[4]}`);
   const types = Object.entries(seen).sort((a, b) => b[1] - a[1]);
   if (DEBUG || (t[0] > 0 && t[1] === 0 && acc.result !== 'link_clicks')) {
     if (t[0] > 0 && t[1] === 0 && acc.result !== 'link_clicks')
