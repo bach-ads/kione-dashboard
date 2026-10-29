@@ -86,10 +86,10 @@ tr.tot td{font-weight:700;border-top:2px solid var(--bd)}
 <div class="c" style="margin-bottom:16px"><h3 id="t2">Custo por lead por dia</h3><div class="h" id="h2">Linha tracejada = meta de R$ 30. Barras abaixo da linha estão dentro da meta</div><div class="ch"><canvas id="c2"></canvas></div></div>
 <div class="c tw" id="tbw"><h3>Desempenho por campanha</h3><div id="tb"></div></div>
 </div>
-<p class="nt"><span id="ft"></span> Resultado de cada conta: Expansão = leads (formulários); Eventos e RH = conversas iniciadas; Acelera Distribuidor = visitas ao perfil; Impulsionamentos MKT = cliques no link (campanhas de tráfego). Metas (R$ 30, CTR 0,80%) valem só para a Expansão. Alcance é a soma dos alcances diários, por isso pode ser maior que o alcance real (pessoas únicas). A comparação com o período anterior só aparece quando existe um período do mesmo tamanho antes do selecionado.</p>
+<p class="nt"><span id="ft"></span> Resultado de cada conta: Expansão = leads (formulários); Eventos e RH = conversas iniciadas; Acelera Distribuidor = visitas ao perfil; Impulsionamentos MKT = cliques no link (campanhas de tráfego). Metas (custo por lead R$ 40, CPM R$ 30, CTR 0,80%) valem só para a Expansão. Novos seguidores: seguidores do perfil do Instagram atribuídos aos anúncios, informados pelo Meta. Alcance é a soma dos alcances diários, por isso pode ser maior que o alcance real (pessoas únicas). A comparação com o período anterior só aparece quando existe um período do mesmo tamanho antes do selecionado.</p>
 </div>
 <script>
-const META={cpl:30,cpm:30,ctr:0.8};
+const META={cpl:40,cpm:30,ctr:0.8};
 // [dia(1-30=set, 31=01/out), campanha(0=Quebra,1=Dor), gasto, impressões, alcance, cliques link, cliques únicos, leads]
 let RA={},NM={},START=new Date(),N=1,lastAc=null;
 const A=[
@@ -108,13 +108,14 @@ const day=s=>Math.round((new Date(s+'T00:00:00Z')-START)/DAY)+1;
 const lab=d=>{const t=iso(d);return t.slice(8)+'/'+t.slice(5,7)};
 const brl=v=>v==null?'—':v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const num=v=>v==null?'—':Math.round(v).toLocaleString('pt-BR');
+const r0=v=>'R$ '+Math.round(v);
 const pct=v=>v==null?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';
 let a=1,b=1,cp='all',ac='all',c1,c2,c3;
-function sums(k,x,y,c){const o={sp:0,im:0,rc:0,lk:0,uq:0,rs:0},ex=k==='exp';
- (RA[k]||[]).forEach(r=>{if(r[0]>=x&&r[0]<=y&&(c==='all'||r[1]==c)){o.sp+=r[2];o.im+=r[3];o.rc+=r[4];o.lk+=r[5];o.uq+=ex?r[6]:r[5];o.rs+=r[7]}});
+function sums(k,x,y,c){const o={sp:0,im:0,rc:0,lk:0,uq:0,rs:0,fl:0},ex=k==='exp';
+ (RA[k]||[]).forEach(r=>{if(r[0]>=x&&r[0]<=y&&(c==='all'||r[1]==c)){o.sp+=r[2];o.im+=r[3];o.rc+=r[4];o.lk+=r[5];o.uq+=ex?r[6]:r[5];o.rs+=r[7];o.fl+=r[8]||0}});
  return o}
 function fillCamp(){const nm=NM[ac]||[];$('cp').innerHTML='<option value="all">Todas as campanhas</option>'+nm.map((n,i)=>`<option value="${i}">${esc(n)}</option>`).join('');$('cp').value='all'}
-function met(o){return {sp:o.sp,rs:o.rs,im:o.im,rc:o.rc,uq:o.uq,lk:o.lk,cpr:o.rs?o.sp/o.rs:null,cpc:o.lk?o.sp/o.lk:null,ctr:o.im?o.lk/o.im*100:null,cpm:o.im?o.sp/o.im*1000:null,conv:o.uq?o.rs/o.uq*100:null}}
+function met(o){return {sp:o.sp,rs:o.rs,im:o.im,rc:o.rc,uq:o.uq,lk:o.lk,fl:o.fl,cpf:o.fl?o.sp/o.fl:null,cpr:o.rs?o.sp/o.rs:null,cpc:o.lk?o.sp/o.lk:null,ctr:o.im?o.lk/o.im*100:null,cpm:o.im?o.sp/o.im*1000:null,conv:o.uq?o.rs/o.uq*100:null}}
 function dl(cur,prev,lowGood){if(prev==null||cur==null||!prev)return '';const p=(cur-prev)/prev*100;if(Math.abs(p)<0.05)return '<div class="d neu">= igual ao período anterior</div>';
  const good=(p>0)!==!!lowGood;return `<div class="d ${good?'good':'bad'}">${p>0?'▲':'▼'} ${Math.abs(p).toLocaleString('pt-BR',{maximumFractionDigits:1})}% vs. período anterior</div>`}
 function chip(ok,t){return `<span class="chip ${ok?'good':'bad'}">${t}</span>`}
@@ -137,12 +138,13 @@ function overview(){
  $('sum').innerHTML=`No período de <b>${lab(a)}</b> a <b>${lab(b)}</b>, as contas da Kione investiram <b>${brl(tot)}</b> em anúncios (${ativas} contas ativas). Maior investimento: <b>${top.x.n}</b> (${num(top.m.sp/(tot||1)*100)}% do total).`;
  const im=rows.reduce((s,r)=>s+r.m.im,0),lk=rows.reduce((s,r)=>s+r.m.lk,0);
  $('hero').innerHTML=card('Investimento total',brl(tot),'Soma das contas ativas',dl(tot,pt,false),1)+card('Impressões',num(im),'Vezes que os anúncios apareceram','',1)+card('Cliques no link',num(lk),'Pessoas que clicaram nos anúncios','',1)+card('Contas ativas',String(ativas),'com investimento no período','',1);
- $('sec').innerHTML='';
+ const rcT=rows.reduce((s,r)=>s+r.m.rc,0),flT=rows.reduce((s,r)=>s+r.m.fl,0),spF=rows.filter(r=>r.m.fl>0).reduce((s,r)=>s+r.m.sp,0);
+ $('sec').innerHTML=card('Alcance*',num(rcT),'Soma dos alcances diários das contas')+card('Novos seguidores (Instagram)',num(flT),flT?brl(spF/flT)+' por seguidor, nas contas que geraram seguidores':'Nenhum seguidor atribuído aos anúncios no período');
  const ds=[];for(let d=a;d<=b;d++)ds.push(d);
  c3.data.labels=ds.map(lab);
  c3.data.datasets.forEach((s,i)=>s.data=ds.map(d=>sums(A[i].k,d,d,'all').sp));
  c3.update('none');
- $('otb').innerHTML='<table><thead><tr><th>Conta</th><th>Investido</th><th>% do total</th><th>Resultado</th><th>Custo/resultado</th><th>Impressões</th><th>Cliques link</th></tr></thead><tbody>'+rows.map(r=>`<tr><td><a href="#" data-k="${r.x.k}" style="color:var(--acc);text-decoration:none">${r.x.n}</a></td><td>${brl(r.m.sp)}</td><td>${tot?pct(r.m.sp/tot*100):'—'}</td><td>${num(r.m.rs)} ${r.x.rl.toLowerCase()}</td><td>${brl(r.m.cpr)}</td><td>${num(r.m.im)}</td><td>${num(r.m.lk)}</td></tr>`).join('')+'</tbody></table>';
+ $('otb').innerHTML='<table><thead><tr><th>Conta</th><th>Investido</th><th>% do total</th><th>Resultado</th><th>Custo/resultado</th><th>Impressões</th><th>Cliques link</th><th>Novos seguidores</th></tr></thead><tbody>'+rows.map(r=>`<tr><td><a href="#" data-k="${r.x.k}" style="color:var(--acc);text-decoration:none">${r.x.n}</a></td><td>${brl(r.m.sp)}</td><td>${tot?pct(r.m.sp/tot*100):'—'}</td><td>${num(r.m.rs)} ${r.x.rl.toLowerCase()}</td><td>${brl(r.m.cpr)}</td><td>${num(r.m.im)}</td><td>${num(r.m.lk)}</td><td>${num(r.m.fl)}</td></tr>`).join('')+'</tbody></table>';
  document.querySelectorAll('#otb a').forEach(l=>l.onclick=e=>{e.preventDefault();ac=l.dataset.k;render()});
 }
 function account(){
@@ -151,17 +153,19 @@ function account(){
  const RL=X.rl;
  let s=`No período de <b>${lab(a)}</b> a <b>${lab(b)}</b>, foram investidos <b>${brl(m.sp)}</b> e gerados <b>${num(m.rs)} ${RL.toLowerCase()}</b>`;
  if(m.cpr!=null){s+=`, a <b>${brl(m.cpr)}</b> por ${X.rs}`;if(goal)s+=` — <span class="${m.cpr<=META.cpl?'good':'bad'}">${m.cpr<=META.cpl?'dentro':'acima'} da meta de ${brl(META.cpl)}</span>`}
+ if(m.fl)s+=` e <b>${num(m.fl)}</b> novos seguidores no Instagram`;
  $('sum').innerHTML=s+'.';
  $('nt2').hidden=!X.proxy;$('nt2').textContent=X.proxy?'Nesta conta o resultado considerado é o número de cliques no link (campanhas de tráfego).':'';
  const T=goal?'':'';
  $('hero').innerHTML=
   card('Valor investido',brl(m.sp),'Total gasto em anúncios',dl(m.sp,P('sp'),false),1)+
   card(RL,num(m.rs),goal?'Pessoas que deixaram contato':'Resultado principal das campanhas',dl(m.rs,P('rs'),false),1)+
-  card('Custo por '+X.rs,brl(m.cpr),'Quanto custa cada resultado',(goal&&m.cpr!=null?chip(m.cpr<=META.cpl,m.cpr<=META.cpl?'Dentro da meta (< R$ 30)':'Acima da meta (< R$ 30)'):'')+dl(m.cpr,P('cpr'),true),1)+
+  card('Custo por '+X.rs,brl(m.cpr),'Quanto custa cada resultado',(goal&&m.cpr!=null?chip(m.cpr<=META.cpl,m.cpr<=META.cpl?'Dentro da meta (< '+r0(META.cpl)+')':'Acima da meta (< '+r0(META.cpl)+')'):'')+dl(m.cpr,P('cpr'),true),1)+
   (goal?card('Taxa de conversão',pct(m.conv),'De cada 100 cliques únicos, quantos viram lead',dl(m.conv,P('conv'),false),1):card('CTR (link)',pct(m.ctr),'Cliques ÷ impressões',dl(m.ctr,P('ctr'),false),1));
  $('sec').innerHTML=
   card('Alcance*',num(m.rc),'Pessoas atingidas',dl(m.rc,P('rc'),false))+
   card(goal?'Cliques únicos no link':'Cliques no link',num(m.uq),'Pessoas que clicaram',dl(m.uq,P('uq'),false))+
+  card('Novos seguidores (Instagram)',num(m.fl),m.fl?brl(m.cpf)+' por seguidor, atribuídos aos anúncios':'Nenhum seguidor atribuído aos anúncios no período',dl(m.fl,P('fl'),false))+
   card('CPC (link)',brl(m.cpc),'Custo por clique (quanto menor, melhor)',dl(m.cpc,P('cpc'),true))+
   (goal?card('CTR (link)',pct(m.ctr),'Cliques ÷ impressões',(m.ctr!=null?chip(m.ctr>=META.ctr,m.ctr>=META.ctr?'Bom (> 0,80%)':'Abaixo de 0,80%'):'')+dl(m.ctr,P('ctr'),false)):'')+
   card('CPM',brl(m.cpm),'Custo por mil impressões',(goal&&m.cpm!=null?chip(m.cpm<=META.cpm,m.cpm<=META.cpm?'Dentro da meta (< R$ 30)':'Acima de R$ 30'):'')+dl(m.cpm,P('cpm'),true))+
@@ -171,7 +175,7 @@ function account(){
  const ds=[];for(let d=a;d<=b;d++)ds.push(d);
  const ag=ds.map(d=>met(sums(ac,d,d,c)));
  $('t1').textContent=RL+' por dia';$('h1').textContent='Quantos resultados chegaram a cada dia';
- $('t2').textContent='Custo por '+X.rs+' por dia';$('h2').textContent=goal?'Linha tracejada = meta de R$ 30. Barras abaixo da linha estão dentro da meta':'Quanto custou cada resultado em cada dia';
+ $('t2').textContent='Custo por '+X.rs+' por dia';$('h2').textContent=goal?'Linha tracejada = meta de '+r0(META.cpl)+'. Barras abaixo da linha estão dentro da meta':'Quanto custou cada resultado em cada dia';
  c1.data.labels=c2.data.labels=ds.map(lab);
  c1.data.datasets[0].data=ag.map(x=>x.rs);
  c2.data.datasets[0].data=ag.map(x=>x.cpr==null?null:+x.cpr.toFixed(2));
@@ -180,19 +184,19 @@ function account(){
  $('tbw').hidden=false;campTable(X,goal);
 }
 let TS={i:1,d:-1};
-const CF=[esc,brl,pct,num,brl,num,num,brl,pct,brl];
+const CF=[esc,brl,pct,num,brl,num,num,num,brl,pct,brl];
 function campTable(X,goal){
  const names=NM[ac]||[];
  const all=names.map((nm,i)=>({nm,i,m:met(sums(ac,a,b,i))})).filter(x=>x.m.sp>0||x.m.im>0);
  const totM=met(sums(ac,a,b,'all')),tot=totM.sp;
  const show=cp==='all'?all:all.filter(x=>x.i==cp);
- const heads=['Campanha','Investido','% do investimento',X.rl,'Custo/'+X.rs,'Alcance*',goal?'Cliques únicos':'Cliques no link','CPC','CTR','CPM'];
- const data=show.map(x=>[x.nm,x.m.sp,tot?x.m.sp/tot*100:null,x.m.rs,x.m.cpr,x.m.rc,x.m.uq,x.m.cpc,x.m.ctr,x.m.cpm]);
+ const heads=['Campanha','Investido','% do investimento',X.rl,'Custo/'+X.rs,'Alcance*',goal?'Cliques únicos':'Cliques no link','Novos seguidores','CPC','CTR','CPM'];
+ const data=show.map(x=>[x.nm,x.m.sp,tot?x.m.sp/tot*100:null,x.m.rs,x.m.cpr,x.m.rc,x.m.uq,x.m.fl,x.m.cpc,x.m.ctr,x.m.cpm]);
  data.sort((p,q)=>{const u=p[TS.i],v=q[TS.i];if(typeof u==='string')return u.localeCompare(v,'pt-BR')*TS.d;return ((u==null?-1:u)-(v==null?-1:v))*TS.d});
  const row=(r,cls)=>`<tr${cls?` class="${cls}"`:''}>`+r.map((v,i)=>{let k=i?'n':'nm';if(goal&&i===4&&v!=null)k+=v<=META.cpl?' good':' bad';return `<td class="${k}">${CF[i](v)}</td>`}).join('')+'</tr>';
  $('tb').innerHTML='<table><thead><tr>'+heads.map((h,i)=>`<th data-i="${i}" class="${i?'n':''}">${esc(h)}${TS.i===i?(TS.d>0?' ▲':' ▼'):''}</th>`).join('')+'</tr></thead><tbody>'+
-  (data.length?data.map(r=>row(r)).join(''):'<tr><td colspan="10">Sem investimento no período selecionado.</td></tr>')+
-  (cp==='all'&&data.length>1?row(['Total da conta',totM.sp,tot?100:null,totM.rs,totM.cpr,totM.rc,totM.uq,totM.cpc,totM.ctr,totM.cpm],'tot'):'')+'</tbody></table>';
+  (data.length?data.map(r=>row(r)).join(''):'<tr><td colspan="11">Sem investimento no período selecionado.</td></tr>')+
+  (cp==='all'&&data.length>1?row(['Total da conta',totM.sp,tot?100:null,totM.rs,totM.cpr,totM.rc,totM.uq,totM.fl,totM.cpc,totM.ctr,totM.cpm],'tot'):'')+'</tbody></table>';
  $('tb').querySelectorAll('th').forEach(th=>th.onclick=()=>{const i=+th.dataset.i;TS={i,d:TS.i===i?-TS.d:-1};campTable(X,goal)});
 }
 function setR(x,y){a=Math.max(1,Math.min(x,N));b=Math.max(a,Math.min(y,N));render()}
@@ -207,7 +211,7 @@ Chart.defaults.color=cs.getPropertyValue('--tx2').trim()||'#9aa0ae';
 Chart.defaults.borderColor='rgba(127,127,127,.2)';
 const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{maxRotation:60,autoSkip:true}},y:{beginAtZero:true}}};
 c1=new Chart($('c1'),{type:'bar',data:{labels:[],datasets:[{label:'Resultados',data:[],backgroundColor:'#F9B233',borderRadius:3}]},options:base});
-c2=new Chart($('c2'),{data:{labels:[],datasets:[{type:'bar',label:'Custo por resultado (R$)',data:[],backgroundColor:'#F9B233',borderRadius:3},{type:'line',label:'Meta R$ 30',data:[],borderColor:'#FFFFFF',borderDash:[6,4],pointRadius:0,borderWidth:2}]},
+c2=new Chart($('c2'),{data:{labels:[],datasets:[{type:'bar',label:'Custo por resultado (R$)',data:[],backgroundColor:'#F9B233',borderRadius:3},{type:'line',label:'Meta '+r0(META.cpl),data:[],borderColor:'#FFFFFF',borderDash:[6,4],pointRadius:0,borderWidth:2}]},
  options:{...base,plugins:{legend:{display:true,labels:{usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+brl(c.parsed.y)}}},scales:{x:base.scales.x,y:{beginAtZero:true,ticks:{callback:v=>'R$ '+v}}}}});
 c3=new Chart($('c3'),{type:'bar',data:{labels:[],datasets:A.map((x,i)=>({label:x.n,data:[],backgroundColor:COL[i],stack:'s'}))},
  options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+brl(c.parsed.y)}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true,ticks:{callback:v=>'R$ '+v}}}}});
@@ -220,10 +224,10 @@ async function boot(){
  START=new Date(J.start+'T00:00:00Z');N=day(J.end);
  RA={};NM={};
  A.forEach(x=>{RA[x.k]=[];NM[x.k]=[]});
- A.forEach(x=>(J.rows[x.k]||[]).forEach(r=>{const d=day(r[0]);if(d<1||d>N)return;let i=NM[x.k].indexOf(r[1]);if(i<0){NM[x.k].push(r[1]);i=NM[x.k].length-1}RA[x.k].push([d,i,r[2],r[3],r[4],r[5],r[6],r[7]])}));
+ A.forEach(x=>(J.rows[x.k]||[]).forEach(r=>{const d=day(r[0]);if(d<1||d>N)return;let i=NM[x.k].indexOf(r[1]);if(i<0){NM[x.k].push(r[1]);i=NM[x.k].length-1}RA[x.k].push([d,i,r[2],r[3],r[4],r[5],r[6],r[7],r[8]||0])}));
  const e1=day(iso(N).slice(0,7)+'-01'),pe=e1-1,ps=pe>=1?day(iso(pe).slice(0,7)+'-01'):1;
- const P=[['Todo o período',1,N],['Últimos 7 dias',Math.max(1,N-6),N],['Últimos 14 dias',Math.max(1,N-13),N]];
- if(e1>1)P.push([MESES[+iso(N).slice(5,7)-1]+' (até hoje)',e1,N]);
+ const P=[];if(e1>1)P.push([MESES[+iso(N).slice(5,7)-1]+' (mês atual)',e1,N]);
+ P.push(['Todo o período',1,N],['Últimos 7 dias',Math.max(1,N-6),N],['Últimos 14 dias',Math.max(1,N-13),N]);
  if(pe>=1)P.push([MESES[+iso(pe).slice(5,7)-1],Math.max(1,ps),pe]);
  $('pre').innerHTML=P.map(p=>`<button data-p="${p[1]},${p[2]}">${p[0]}</button>`).join('');
  document.querySelectorAll('#pre button').forEach(bt=>bt.onclick=()=>{const q=bt.dataset.p.split(',').map(Number);setR(q[0],q[1])});
@@ -233,7 +237,7 @@ async function boot(){
  $('ft').textContent=`Dados: Meta Ads, ${fmtD(J.start)} a ${fmtD(J.end)} (o dia mais recente pode estar parcial). Atualizado em ${upd}.`;
  const stl=J.stale||[];
  if(stl.length){$('stl').hidden=false;$('stl').textContent='Atenção: '+stl.map(x=>`${x.name} está com dados até ${fmtD(x.until)}`).join('; ')+'. O Meta não respondeu na última coleta; a próxima atualização deve corrigir.'}
- a=1;b=N;render();
+ a=Math.max(1,e1);b=N;render();
 }
 boot();
 </script>
