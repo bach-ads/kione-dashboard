@@ -20,11 +20,8 @@ concurrency:
 
 jobs:
   update-and-deploy:
-    timeout-minutes: 20
-jobs:
-  update-and-deploy:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
