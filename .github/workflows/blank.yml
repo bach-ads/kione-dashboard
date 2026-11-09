@@ -16,8 +16,11 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
+jobs:
+  update-and-deploy:
+    timeout-minutes: 20
 jobs:
   update-and-deploy:
     runs-on: ubuntu-24.04
